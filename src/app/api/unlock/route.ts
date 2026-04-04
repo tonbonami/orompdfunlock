@@ -8,6 +8,7 @@ import { join } from "path";
 import { randomUUID } from "crypto";
 
 const execFileAsync = promisify(execFile);
+const QPDF_PATH = "/nix/store/gzrgjf2ig2sy3w6w8rrb33jahgd6mgzl-qpdf-11.6.1/bin/qpdf";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     // 2. 암호화 여부 먼저 확인
     let isEncrypted = false;
     try {
-      const { stdout } = await execFileAsync("qpdf", ["--show-encryption", inputPath]);
+      const { stdout } = await execFileAsync(QPDF_PATH, ["--show-encryption", inputPath]);
       // "File is not encrypted" 가 없으면 암호화된 것
       isEncrypted = !stdout.includes("File is not encrypted");
     } catch (e: any) {
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
     ];
 
     try {
-      await execFileAsync("qpdf", args);
+      await execFileAsync(QPDF_PATH, args);
     } catch (e: any) {
       // exit code 2 = 비밀번호 오류
       const stderr = e.stderr || e.message || "";
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     // 5. 출력 파일 검증 — 비밀번호 없이 열리는지 재확인
     try {
-      await execFileAsync("qpdf", ["--check", outputPath]);
+      await execFileAsync(QPDF_PATH, ["--check", outputPath]);
     } catch {
       return NextResponse.json({ status: "verification_failed" });
     }
