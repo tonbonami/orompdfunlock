@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useCallback, useRef } from "react";
@@ -285,12 +284,15 @@ export default function PDFUnlockerApp() {
       </div>
 
       {/* Footer Branding */}
-      <footer className="pt-12 border-t border-border mt-12 text-center text-sm text-muted-foreground">
-        <div className="flex items-center justify-center gap-2 mb-2">
+      <footer className="pt-12 border-t border-border mt-12 text-center space-y-4">
+        <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <CheckCircle className="h-4 w-4" />
           <span>Files are processed securely in memory</span>
         </div>
-        <p>© {new Date().getFullYear()} PDF Unlocker Pro by <OROMeduLogo className="inline-flex scale-90" /></p>
+        <p className="flex flex-wrap items-center justify-center gap-1 text-sm text-muted-foreground">
+          <span>© 2026 PDF Unlocker Pro by</span>
+          <OROMeduLogo className="scale-90" />
+        </p>
       </footer>
     </div>
   );
