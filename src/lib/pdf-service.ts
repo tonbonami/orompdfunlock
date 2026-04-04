@@ -17,7 +17,7 @@ export async function processPDF(
   let wasEncrypted = true;
 
   try {
-    const res = await fetch(`${BACKEND_URL}/unlock-pdfs`, {
+    const res = await fetch(`/api/proxy`, {
       method: "POST",
       body: formData,
     });
