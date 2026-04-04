@@ -26,6 +26,7 @@ export default function PDFUnlockerApp() {
     includeLogo: true,
     includeDate: true,
     downloadFormat: 'pdf',
+    password: '',
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -113,7 +114,7 @@ export default function PDFUnlockerApp() {
     if (unlockedCount === 0 && alreadyCount === 0) {
       setErrorMsg([
         "유효한 PDF를 잠금 해제할 수 없습니다.",
-        "일부 파일이 암호로 보호되어 있거나 손상되었을 수 있습니다.",
+        "입력한 비밀번호가 올바르지 않을 수 있습니다.",
         "파일의 형식을 확인한 후 다시 시도해 주세요."
       ]);
     } else {

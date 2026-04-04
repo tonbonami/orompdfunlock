@@ -3,7 +3,8 @@
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Unlock, Loader2, Trash2, CheckCircle2, FileType, FileArchive } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Unlock, Loader2, Trash2, CheckCircle2, FileType, FileArchive, KeyRound } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ExportOptions, DownloadFormat } from "@/types/pdf";
@@ -41,7 +42,7 @@ export function ActionPanel({
             {isProcessing ? (
               <>
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                PDF 잠금 해제 중...
+                처리 중...
               </>
             ) : (
               <>
@@ -69,6 +70,22 @@ export function ActionPanel({
         </h3>
         
         <div className="space-y-5 animate-in fade-in duration-300">
+          <div className="space-y-2">
+            <Label htmlFor="pdf-password" className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+              <KeyRound className="h-3 w-3" />
+              비밀번호 (필요한 경우 입력)
+            </Label>
+            <Input
+              id="pdf-password"
+              type="password"
+              placeholder="파일 열기 비밀번호"
+              className="h-9 text-sm"
+              value={exportOptions.password || ''}
+              onChange={(e) => onExportOptionsChange({ ...exportOptions, password: e.target.value })}
+              disabled={isProcessing}
+            />
+          </div>
+
           <div className="flex items-center space-x-3">
             <Checkbox
               id="includeLogo"
@@ -102,14 +119,20 @@ export function ActionPanel({
               onValueChange={(val) => onExportOptionsChange({ ...exportOptions, downloadFormat: val as DownloadFormat })}
               className="grid grid-cols-1 gap-2"
             >
-              <div className="flex items-center space-x-3 rounded-md border border-border p-3 hover:bg-accent/30 transition-colors cursor-pointer" onClick={() => onExportOptionsChange({ ...exportOptions, downloadFormat: 'pdf' })}>
+              <div 
+                className={`flex items-center space-x-3 rounded-md border p-3 transition-colors cursor-pointer ${exportOptions.downloadFormat === 'pdf' ? 'bg-primary/5 border-primary/20' : 'border-border hover:bg-accent/30'}`}
+                onClick={() => onExportOptionsChange({ ...exportOptions, downloadFormat: 'pdf' })}
+              >
                 <RadioGroupItem value="pdf" id="format-pdf" />
                 <Label htmlFor="format-pdf" className="flex flex-1 items-center gap-2 cursor-pointer text-sm font-medium">
                   <FileType className="h-4 w-4 text-blue-500" />
                   PDF로 받기 (개별)
                 </Label>
               </div>
-              <div className="flex items-center space-x-3 rounded-md border border-border p-3 hover:bg-accent/30 transition-colors cursor-pointer" onClick={() => onExportOptionsChange({ ...exportOptions, downloadFormat: 'zip' })}>
+              <div 
+                className={`flex items-center space-x-3 rounded-md border p-3 transition-colors cursor-pointer ${exportOptions.downloadFormat === 'zip' ? 'bg-primary/5 border-primary/20' : 'border-border hover:bg-accent/30'}`}
+                onClick={() => onExportOptionsChange({ ...exportOptions, downloadFormat: 'zip' })}
+              >
                 <RadioGroupItem value="zip" id="format-zip" />
                 <Label htmlFor="format-zip" className="flex flex-1 items-center gap-2 cursor-pointer text-sm font-medium">
                   <FileArchive className="h-4 w-4 text-amber-500" />

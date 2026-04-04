@@ -2,10 +2,12 @@
 export type PDFStatus = 
   | 'Ready' 
   | 'Processing' 
-  | 'Unlocked' 
-  | 'Already Unlocked' 
-  | 'Wrong Password' 
-  | 'Failed';
+  | 'Unlocked'          // 잠금 해제 완료
+  | 'Already Unlocked'  // 이미 잠금 해제됨
+  | 'Wrong Password'    // 비밀번호 오류
+  | 'Failed'            // 잠금 해제 실패
+  | 'Save Failed'       // 저장 실패
+  | 'Verification Failed'; // 검증 실패
 
 export interface PDFFile {
   id: string;
@@ -31,4 +33,5 @@ export interface ExportOptions {
   includeLogo: boolean;
   includeDate: boolean;
   downloadFormat: DownloadFormat;
+  password?: string;
 }

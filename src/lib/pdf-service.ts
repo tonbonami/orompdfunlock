@@ -8,50 +8,56 @@ export async function processPDF(
   options: ExportOptions
 ): Promise<{ status: PDFStatus; error?: string; blob?: Blob }> {
   try {
-    // 1. Load the PDF
     const arrayBuffer = await pdfFile.file.arrayBuffer();
     
-    // In a real scenario, we'd handle passwords here using pdf-lib or a backend.
-    // Since we're mocking the "unlocking" but implementing "branding", 
-    // we assume the PDF is accessible.
+    // 1. Detect if the source PDF is encrypted/locked
+    // Standard PDF check: Search for '/Encrypt' in the first few thousand bytes
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const decoder = new TextDecoder();
+    const isEncrypted = decoder.decode(uint8Array.slice(0, 10000)).includes('/Encrypt');
     
     let pdfDoc;
     try {
+      // Try loading without password first
       pdfDoc = await PDFDocument.load(arrayBuffer);
-    } catch (e) {
-      // If it fails to load, it might be password protected and we can't open it in mock
-      return { status: "Wrong Password", error: "비밀번호가 필요하거나 지원되지 않는 형식입니다." };
+    } catch (e: any) {
+      // If failed, try with provided password
+      if (options.password) {
+        try {
+          pdfDoc = await PDFDocument.load(arrayBuffer, { password: options.password });
+        } catch (pwError) {
+          return { status: "Wrong Password", error: "비밀번호가 올바르지 않습니다." };
+        }
+      } else {
+        // Encrypted but no password provided
+        return { status: "Wrong Password", error: "이 파일은 비밀번호가 필요합니다." };
+      }
     }
 
     const pages = pdfDoc.getPages();
     const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    
     const today = format(new Date(), "yyyy. M. d.");
 
-    // Colors
-    // orom-blue: #7BA7FF -> rgb(123, 167, 255) -> (0.48, 0.65, 1.0)
-    // orom-red: #FF8E8E -> rgb(255, 142, 142) -> (1.0, 0.55, 0.55)
-    const colorBlue = rgb(0.48, 0.65, 1.0);
-    const colorRed = rgb(1.0, 0.55, 0.55);
+    // OROMedu colors
+    const colorBlue = rgb(0.48, 0.65, 1.0); // Soft Blue
+    const colorRed = rgb(1.0, 0.55, 0.55);  // Soft Red
 
     for (const page of pages) {
       const { width, height } = page.getSize();
       
-      // 2. Clear/Cover top area if branding is requested
+      // Branding: Cover top-left and top-right if needed
       if (options.includeLogo || options.includeDate) {
         page.drawRectangle({
           x: 0,
           y: height - 40,
           width: width,
           height: 40,
-          color: rgb(1, 1, 1), // White cover
+          color: rgb(1, 1, 1), // White patch to avoid overlap
         });
       }
 
-      // 3. Add Logo
       if (options.includeLogo) {
-        // Draw "OROM"
         page.drawText("OROM", {
           x: 25,
           y: height - 25,
@@ -59,7 +65,6 @@ export async function processPDF(
           font: font,
           color: colorBlue,
         });
-        // Draw "edu"
         page.drawText("edu", {
           x: 25 + font.widthOfTextAtSize("OROM", 12),
           y: height - 25,
@@ -69,7 +74,6 @@ export async function processPDF(
         });
       }
 
-      // 4. Add Date
       if (options.includeDate) {
         const dateTextWidth = regularFont.widthOfTextAtSize(today, 10);
         page.drawText(today, {
@@ -77,26 +81,38 @@ export async function processPDF(
           y: height - 25,
           size: 10,
           font: regularFont,
-          color: rgb(0.5, 0.5, 0.5), // Muted grey
+          color: rgb(0.5, 0.5, 0.5),
         });
       }
     }
 
-    // 5. Save and Validate
+    // Save decrypted & branded PDF
     const pdfBytes = await pdfDoc.save();
     
     if (pdfBytes.length === 0) {
-      return { status: "Failed", error: "파일 생성 중 오류가 발생했습니다." };
+      return { status: "Save Failed", error: "파일 저장 중 오류가 발생했습니다." };
+    }
+
+    // 2. Verification Step: Try to reopen without password
+    try {
+      await PDFDocument.load(pdfBytes);
+    } catch (verifyError) {
+      return { status: "Verification Failed", error: "잠금 해제 후 파일 검증에 실패했습니다." };
     }
 
     const processedBlob = new Blob([pdfBytes], { type: "application/pdf" });
     
+    // 3. Status logic: Truly Unlocked vs Already Unlocked
+    // If it was originally encrypted but now opens without password -> Unlocked
+    // If it was never encrypted -> Already Unlocked
+    const finalStatus: PDFStatus = isEncrypted ? "Unlocked" : "Already Unlocked";
+
     return { 
-      status: "Unlocked", 
+      status: finalStatus, 
       blob: processedBlob 
     };
   } catch (err) {
     console.error("PDF processing error:", err);
-    return { status: "Failed", error: "파일을 처리하는 중 예기치 않은 오류가 발생했습니다." };
+    return { status: "Failed", error: "알 수 없는 오류가 발생했습니다." };
   }
 }
