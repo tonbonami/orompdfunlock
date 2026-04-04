@@ -113,9 +113,9 @@ export default function PDFUnlockerApp() {
     
     if (unlockedCount === 0 && alreadyCount === 0) {
       setErrorMsg([
-        "유효한 PDF를 잠금 해제할 수 없습니다.",
-        "입력한 비밀번호가 올바르지 않을 수 있습니다.",
-        "파일의 형식을 확인한 후 다시 시도해 주세요."
+        "유효한 PDF를 처리할 수 없었습니다.",
+        "파일이 암호로 강력하게 보호되어 있거나 손상되었을 수 있습니다.",
+        "올바른 비밀번호를 입력했는지 확인해 주세요."
       ]);
     } else {
       handleDownload(updatedFiles);
@@ -137,11 +137,10 @@ export default function PDFUnlockerApp() {
     );
 
     downloadableFiles.forEach((f, idx) => {
-      // Small delay between triggers to help some browsers handle multiple downloads
       setTimeout(() => {
         const link = document.createElement("a");
         link.href = URL.createObjectURL(f.unlockedBlob!);
-        link.download = `unlocked_${f.name}`;
+        link.download = `[Unlocked]_${f.name}`;
         link.click();
       }, idx * 300);
     });
@@ -157,13 +156,13 @@ export default function PDFUnlockerApp() {
     if (downloadableFiles.length === 0) return;
 
     for (const f of downloadableFiles) {
-      zip.file(`unlocked_${f.name}`, f.unlockedBlob!);
+      zip.file(`[Unlocked]_${f.name}`, f.unlockedBlob!);
     }
 
     const content = await zip.generateAsync({ type: "blob" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(content);
-    link.download = `unlocked_pdfs_${format(new Date(), "yyyyMMdd_HHmm")}.zip`;
+    link.download = `Unlocked_PDFs_${format(new Date(), "yyyyMMdd_HHmm")}.zip`;
     link.click();
   };
 
@@ -182,7 +181,7 @@ export default function PDFUnlockerApp() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">
             PDF Unlocker Pro
           </h1>
-          <p className="text-muted-foreground">전문가용 배치 PDF 잠금 해제 및 브랜딩 도구</p>
+          <p className="text-muted-foreground">강력한 PDF 편집 제한 및 암호 해제 도구</p>
         </div>
         <OROMeduLogo className="mb-1 text-2xl" />
       </div>
@@ -190,7 +189,7 @@ export default function PDFUnlockerApp() {
       {errorMsg && (
         <Alert variant="destructive" className="bg-red-50 border-red-200">
           <AlertTriangle className="h-4 w-4 text-red-600" />
-          <AlertTitle className="text-red-800 font-bold">처리 실패</AlertTitle>
+          <AlertTitle className="text-red-800 font-bold">처리 중 오류 발생</AlertTitle>
           <AlertDescription className="text-red-700 mt-2 space-y-1">
             {errorMsg.map((msg, i) => (
               <p key={i}>• {msg}</p>
@@ -226,8 +225,8 @@ export default function PDFUnlockerApp() {
             )}>
               <UploadCloud className="h-12 w-12 text-muted-foreground" />
             </div>
-            <p className="text-lg font-bold">PDF 파일을 클릭하거나 여기로 드래그하세요</p>
-            <p className="text-sm text-muted-foreground mt-1">.pdf 파일만 안전하게 처리 가능합니다</p>
+            <p className="text-lg font-bold">PDF 파일을 선택하거나 여기로 드래그하세요</p>
+            <p className="text-sm text-muted-foreground mt-1">파일은 서버에 저장되지 않고 브라우저에서 안전하게 처리됩니다</p>
           </div>
 
           {files.length > 0 && (
@@ -235,7 +234,7 @@ export default function PDFUnlockerApp() {
               <div className="p-4 bg-background border-b border-border flex justify-between items-center">
                 <span className="text-sm font-bold flex items-center gap-2">
                   <FileType className="h-4 w-4" />
-                  업로드된 파일 목록 ({files.length})
+                  파일 목록 ({files.length}개)
                 </span>
                 {isProcessing && (
                   <span className="text-xs font-bold text-primary animate-pulse">
@@ -319,7 +318,7 @@ export default function PDFUnlockerApp() {
             <div className="p-4 rounded-lg bg-blue-50 border border-blue-100 flex gap-3 animate-in fade-in duration-300">
               <Info className="h-5 w-5 text-blue-500 shrink-0" />
               <p className="text-xs text-blue-700 font-medium leading-relaxed">
-                'PDF 잠금 해제 시작'을 누르면 설정된 방식에 따라 파일을 즉시 처리합니다.
+                '해제 시작' 버튼을 클릭하면 편집이 금지된 PDF의 모든 제한 사항이 제거된 새 파일이 생성됩니다.
               </p>
             </div>
           )}
@@ -329,7 +328,7 @@ export default function PDFUnlockerApp() {
       <footer className="pt-12 border-t border-border mt-12 text-center space-y-4">
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground font-medium">
           <CheckCircle className="h-4 w-4 text-green-500" />
-          <span>파일은 메모리 내에서 안전하게 처리되며 서버에 저장되지 않습니다</span>
+          <span>모든 작업은 로컬 메모리에서 이루어지며, 외부로 파일이 전송되지 않습니다.</span>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-1 text-sm text-muted-foreground">
           <span>© 2026 PDF Unlocker Pro by</span>

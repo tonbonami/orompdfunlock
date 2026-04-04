@@ -42,12 +42,12 @@ export function ActionPanel({
             {isProcessing ? (
               <>
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                처리 중...
+                잠금 해제 중...
               </>
             ) : (
               <>
                 <Unlock className="h-5 w-5 mr-2" />
-                PDF 잠금 해제 시작
+                편집 제한 해제 시작
               </>
             )}
           </Button>
@@ -58,7 +58,7 @@ export function ActionPanel({
             className="w-full text-muted-foreground border-border hover:bg-muted/30 h-10"
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            모두 지우기
+            목록 모두 지우기
           </Button>
         </div>
       </div>
@@ -66,24 +66,27 @@ export function ActionPanel({
       <div className="pt-6 border-t border-border space-y-4">
         <h3 className="text-sm font-bold flex items-center gap-2 text-foreground">
           <CheckCircle2 className="h-4 w-4 text-primary" />
-          내보내기 설정
+          내보내기 및 보안 설정
         </h3>
         
         <div className="space-y-5 animate-in fade-in duration-300">
           <div className="space-y-2">
             <Label htmlFor="pdf-password" className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
               <KeyRound className="h-3 w-3" />
-              비밀번호 (필요한 경우 입력)
+              비밀번호 입력 (파일이 잠겨있는 경우)
             </Label>
             <Input
               id="pdf-password"
               type="password"
-              placeholder="파일 열기 비밀번호"
+              placeholder="파일 열기 암호를 입력하세요"
               className="h-9 text-sm"
               value={exportOptions.password || ''}
               onChange={(e) => onExportOptionsChange({ ...exportOptions, password: e.target.value })}
               disabled={isProcessing}
             />
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              * 편집 제한만 걸린 파일은 비밀번호 없이도 해제가 가능할 수 있습니다.
+            </p>
           </div>
 
           <div className="flex items-center space-x-3">
@@ -95,7 +98,7 @@ export function ActionPanel({
               }
             />
             <Label htmlFor="includeLogo" className="text-sm font-medium cursor-pointer leading-none">
-              OROMedu 로고 포함
+              OROMedu 로고 삽입
             </Label>
           </div>
 
@@ -108,12 +111,12 @@ export function ActionPanel({
               }
             />
             <Label htmlFor="includeDate" className="text-sm font-medium cursor-pointer leading-none">
-              내보내기 날짜 포함
+              내보내기 날짜 삽입
             </Label>
           </div>
 
           <div className="space-y-3 pt-1">
-            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">다운로드 형식</Label>
+            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">내보내기 방식</Label>
             <RadioGroup 
               value={exportOptions.downloadFormat} 
               onValueChange={(val) => onExportOptionsChange({ ...exportOptions, downloadFormat: val as DownloadFormat })}
@@ -126,7 +129,7 @@ export function ActionPanel({
                 <RadioGroupItem value="pdf" id="format-pdf" />
                 <Label htmlFor="format-pdf" className="flex flex-1 items-center gap-2 cursor-pointer text-sm font-medium">
                   <FileType className="h-4 w-4 text-blue-500" />
-                  PDF로 받기 (개별)
+                  개별 PDF 파일로 받기
                 </Label>
               </div>
               <div 
@@ -136,7 +139,7 @@ export function ActionPanel({
                 <RadioGroupItem value="zip" id="format-zip" />
                 <Label htmlFor="format-zip" className="flex flex-1 items-center gap-2 cursor-pointer text-sm font-medium">
                   <FileArchive className="h-4 w-4 text-amber-500" />
-                  ZIP 파일로 받기 (압축)
+                  하나의 ZIP 파일로 압축
                 </Label>
               </div>
             </RadioGroup>

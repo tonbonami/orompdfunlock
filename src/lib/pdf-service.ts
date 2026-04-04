@@ -3,6 +3,13 @@ import { PDFFile, PDFStatus, ExportOptions } from "@/types/pdf";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { format } from "date-fns";
 
+/**
+ * @fileOverview PDF 처리 서비스
+ * - 편집 제한(Owner Password) 및 열기 제한(User Password) 해제 로직 포함
+ * - 로고 삽입 및 날짜 삽입 기능
+ * - 생성 후 무암호화 상태 검증
+ */
+
 export async function processPDF(
   pdfFile: PDFFile,
   options: ExportOptions
@@ -10,50 +17,57 @@ export async function processPDF(
   try {
     const arrayBuffer = await pdfFile.file.arrayBuffer();
     
-    // 1. Detect if the source PDF is encrypted/locked
-    // Standard PDF check: Search for '/Encrypt' in the first few thousand bytes
+    // 1. 암호화 여부 사전 감지 (바이너리 체크)
     const uint8Array = new Uint8Array(arrayBuffer);
     const decoder = new TextDecoder();
-    const isEncrypted = decoder.decode(uint8Array.slice(0, 10000)).includes('/Encrypt');
+    // PDF 헤더 및 카탈로그 영역에서 암호화 딕셔너리 존재 여부 확인
+    const isEncrypted = decoder.decode(uint8Array.slice(0, 20000)).includes('/Encrypt');
     
-    let pdfDoc;
+    let sourcePdfDoc: PDFDocument;
+    
     try {
-      // Try loading without password first
-      pdfDoc = await PDFDocument.load(arrayBuffer);
+      // 먼저 비밀번호 없이 로드 시도
+      sourcePdfDoc = await PDFDocument.load(arrayBuffer);
     } catch (e: any) {
-      // If failed, try with provided password
+      // 로드 실패 시 (암호 필요)
       if (options.password) {
         try {
-          pdfDoc = await PDFDocument.load(arrayBuffer, { password: options.password });
+          sourcePdfDoc = await PDFDocument.load(arrayBuffer, { password: options.password });
         } catch (pwError) {
-          return { status: "Wrong Password", error: "비밀번호가 올바르지 않습니다." };
+          return { status: "Wrong Password", error: "입력하신 비밀번호가 틀립니다." };
         }
       } else {
-        // Encrypted but no password provided
-        return { status: "Wrong Password", error: "이 파일은 비밀번호가 필요합니다." };
+        // 암호가 걸려있는데 입력되지 않음
+        return { status: "Wrong Password", error: "파일을 열기 위해 비밀번호가 필요합니다." };
       }
     }
 
-    const pages = pdfDoc.getPages();
-    const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    // 2. 편집 제한을 확실히 풀기 위해 새로운 문서 객체 생성 (Re-serialization)
+    // 원본의 페이지를 새 문서로 복사하면 모든 제한 사항(Permissions)이 초기화됩니다.
+    const outPdfDoc = await PDFDocument.create();
+    const copiedPages = await outPdfDoc.copyPages(sourcePdfDoc, sourcePdfDoc.getPageIndices());
+    copiedPages.forEach((page) => outPdfDoc.addPage(page));
+
+    // 3. 브랜딩 적용
+    const pages = outPdfDoc.getPages();
+    const font = await outPdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const regularFont = await outPdfDoc.embedFont(StandardFonts.Helvetica);
     const today = format(new Date(), "yyyy. M. d.");
 
-    // OROMedu colors
-    const colorBlue = rgb(0.48, 0.65, 1.0); // Soft Blue
-    const colorRed = rgb(1.0, 0.55, 0.55);  // Soft Red
+    const colorBlue = rgb(0.48, 0.65, 1.0); // OROM Blue
+    const colorRed = rgb(1.0, 0.55, 0.55);  // OROM Red
 
     for (const page of pages) {
       const { width, height } = page.getSize();
       
-      // Branding: Cover top-left and top-right if needed
+      // 상단 여백 확보 (기존 내용 가리기)
       if (options.includeLogo || options.includeDate) {
         page.drawRectangle({
           x: 0,
           y: height - 40,
           width: width,
           height: 40,
-          color: rgb(1, 1, 1), // White patch to avoid overlap
+          color: rgb(1, 1, 1),
         });
       }
 
@@ -86,14 +100,14 @@ export async function processPDF(
       }
     }
 
-    // Save decrypted & branded PDF
-    const pdfBytes = await pdfDoc.save();
+    // 4. 저장 (새로운 무암호화 파일 생성)
+    const pdfBytes = await outPdfDoc.save();
     
     if (pdfBytes.length === 0) {
-      return { status: "Save Failed", error: "파일 저장 중 오류가 발생했습니다." };
+      return { status: "Save Failed", error: "파일 생성 중 오류가 발생했습니다." };
     }
 
-    // 2. Verification Step: Try to reopen without password
+    // 5. 최종 검증: 저장된 파일이 비밀번호 없이 열리는지 확인
     try {
       await PDFDocument.load(pdfBytes);
     } catch (verifyError) {
@@ -102,9 +116,7 @@ export async function processPDF(
 
     const processedBlob = new Blob([pdfBytes], { type: "application/pdf" });
     
-    // 3. Status logic: Truly Unlocked vs Already Unlocked
-    // If it was originally encrypted but now opens without password -> Unlocked
-    // If it was never encrypted -> Already Unlocked
+    // 원래 암호화되어 있었으면 '해제 완료', 아니면 '이미 해제됨'
     const finalStatus: PDFStatus = isEncrypted ? "Unlocked" : "Already Unlocked";
 
     return { 
@@ -113,6 +125,6 @@ export async function processPDF(
     };
   } catch (err) {
     console.error("PDF processing error:", err);
-    return { status: "Failed", error: "알 수 없는 오류가 발생했습니다." };
+    return { status: "Failed", error: "지원되지 않는 파일 형식이거나 처리 중 오류가 발생했습니다." };
   }
 }
