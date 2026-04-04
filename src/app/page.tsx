@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useCallback, useRef } from "react";
@@ -8,8 +9,9 @@ import { ActionPanel } from "@/components/ActionPanel";
 import { ResultsSummary } from "@/components/ResultsSummary";
 import { OROMeduLogo } from "@/components/OROMeduLogo";
 import { Progress } from "@/components/ui/progress";
-import { FileText, X, UploadCloud, FileType, CheckCircle, Info } from "lucide-react";
+import { FileText, X, UploadCloud, FileType, CheckCircle, Info, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import JSZip from "jszip";
 import { format } from "date-fns";
 
@@ -19,6 +21,7 @@ export default function PDFUnlockerApp() {
   const [isDragging, setIsDragging] = useState(false);
   const [currentProcessingIndex, setCurrentProcessingIndex] = useState(-1);
   const [summary, setSummary] = useState<ProcessingSummary | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string[] | null>(null);
   const [exportOptions, setExportOptions] = useState<ExportOptions>({
     includeLogo: true,
     includeDate: true,
@@ -42,17 +45,20 @@ export default function PDFUnlockerApp() {
     
     setFiles((prev) => [...prev, ...pdfs]);
     setSummary(null);
+    setErrorMsg(null);
   };
 
   const removeFile = (id: string) => {
     if (isProcessing) return;
     setFiles((prev) => prev.filter((f) => f.id !== id));
     setSummary(null);
+    setErrorMsg(null);
   };
 
   const clearAll = () => {
     setFiles([]);
     setSummary(null);
+    setErrorMsg(null);
     setCurrentProcessingIndex(-1);
   };
 
@@ -60,6 +66,7 @@ export default function PDFUnlockerApp() {
     if (files.length === 0) return;
     setIsProcessing(true);
     setSummary(null);
+    setErrorMsg(null);
     setCurrentProcessingIndex(0);
 
     const updatedFiles = [...files];
@@ -72,7 +79,6 @@ export default function PDFUnlockerApp() {
       setCurrentProcessingIndex(i);
       const current = updatedFiles[i];
       
-      // Update status to processing
       updatedFiles[i] = { ...current, status: "Processing" };
       setFiles([...updatedFiles]);
 
@@ -81,7 +87,8 @@ export default function PDFUnlockerApp() {
       updatedFiles[i] = { 
         ...updatedFiles[i], 
         status: result.status, 
-        errorMessage: result.error 
+        errorMessage: result.error,
+        unlockedBlob: result.blob
       };
 
       if (result.status === "Unlocked") unlockedCount++;
@@ -104,23 +111,33 @@ export default function PDFUnlockerApp() {
     setIsProcessing(false);
     setCurrentProcessingIndex(-1);
     
-    // Automatically trigger ZIP download if any succeeded
     if (unlockedCount > 0 || alreadyCount > 0) {
       downloadAsZip(updatedFiles);
+    } else {
+      setErrorMsg([
+        "유효한 PDF를 잠금 해제할 수 없습니다.",
+        "입력한 비밀번호가 올바르지 않을 수 있습니다.",
+        "일부 파일이 손상되었거나 지원되지 않는 형식일 수 있습니다."
+      ]);
     }
   };
 
   const downloadAsZip = async (currentFiles: PDFFile[]) => {
     const zip = new JSZip();
-    const folder = zip.folder("unlocked_pdfs");
-
+    
+    // Only include files that were successfully unlocked or already clear, AND have actual binary content
     const downloadableFiles = currentFiles.filter(
-      (f) => f.status === "Unlocked" || f.status === "Already Unlocked"
+      (f) => (f.status === "Unlocked" || f.status === "Already Unlocked") && 
+             f.unlockedBlob && f.unlockedBlob.size > 0
     );
+
+    if (downloadableFiles.length === 0) return;
+
+    const folder = zip.folder("unlocked_pdfs");
 
     for (const f of downloadableFiles) {
       const prefix = f.status === "Unlocked" ? "unlocked_" : "";
-      folder?.file(`${prefix}${f.name}`, f.file);
+      folder?.file(`${prefix}${f.name}`, f.unlockedBlob!);
     }
 
     const content = await zip.generateAsync({ type: "blob" });
@@ -140,19 +157,29 @@ export default function PDFUnlockerApp() {
 
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto space-y-8">
-      {/* Header with subtle branding if requested */}
       <div className="flex justify-between items-end">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-headline">
             PDF Unlocker Pro
           </h1>
-          <p className="text-muted-foreground">Professional batch PDF decryption with calm precision.</p>
+          <p className="text-muted-foreground">빠르고 정교한 전문가용 배치 PDF 잠금 해제 도구입니다.</p>
         </div>
         {exportOptions.includeLogo && <OROMeduLogo className="mb-1 text-lg" />}
       </div>
 
+      {errorMsg && (
+        <Alert variant="destructive" className="bg-red-50 border-red-200">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <AlertTitle className="text-red-800 font-bold">잠금 해제 실패</AlertTitle>
+          <AlertDescription className="text-red-700 mt-2 space-y-1">
+            {errorMsg.map((msg, i) => (
+              <p key={i}>• {msg}</p>
+            ))}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Upload & File List */}
         <div className="lg:col-span-8 space-y-6">
           <div
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -180,8 +207,8 @@ export default function PDFUnlockerApp() {
             )}>
               <UploadCloud className="h-10 w-10 text-muted-foreground" />
             </div>
-            <p className="text-lg font-medium">Click or drag PDF files to upload</p>
-            <p className="text-sm text-muted-foreground mt-1">Only .pdf files are accepted</p>
+            <p className="text-lg font-medium">PDF 파일을 클릭하거나 여기로 드래그하세요</p>
+            <p className="text-sm text-muted-foreground mt-1">.pdf 파일만 업로드 가능합니다</p>
           </div>
 
           {files.length > 0 && (
@@ -189,17 +216,17 @@ export default function PDFUnlockerApp() {
               <div className="p-4 bg-background border-b border-border flex justify-between items-center">
                 <span className="text-sm font-semibold flex items-center gap-2">
                   <FileType className="h-4 w-4" />
-                  Uploaded Files ({files.length})
+                  업로드된 파일 ({files.length})
                 </span>
                 {isProcessing && (
                   <span className="text-xs font-medium text-muted-foreground animate-pulse">
-                    Processing {currentProcessingIndex + 1} of {files.length}...
+                    처리 중: {currentProcessingIndex + 1} / {files.length}...
                   </span>
                 )}
               </div>
               
               <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
-                {files.map((file, idx) => (
+                {files.map((file) => (
                   <div 
                     key={file.id} 
                     className={cn(
@@ -252,7 +279,6 @@ export default function PDFUnlockerApp() {
           )}
         </div>
 
-        {/* Right Column: Actions & Summary */}
         <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-8">
           <ActionPanel
             fileCount={files.length}
@@ -266,7 +292,7 @@ export default function PDFUnlockerApp() {
           {summary && (
             <ResultsSummary
               summary={summary}
-              onRetry={() => startUnlocking("")} // Should reuse password from state in real app
+              onRetry={() => startUnlocking("")} 
               onReset={clearAll}
               onDownloadZip={() => downloadAsZip(files)}
             />
@@ -276,18 +302,17 @@ export default function PDFUnlockerApp() {
             <div className="p-4 rounded-lg bg-blue-50 border border-blue-100 flex gap-3 animate-in fade-in duration-300">
               <Info className="h-5 w-5 text-blue-500 shrink-0" />
               <p className="text-xs text-blue-700 leading-relaxed">
-                Unlock all PDFs at once. If you don't enter a password, we'll attempt to clear protection from any open-access PDFs.
+                모든 PDF를 한 번에 해제합니다. 비밀번호를 입력하지 않으면 비밀번호가 없는 PDF의 보호를 제거합니다.
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Footer Branding */}
       <footer className="pt-12 border-t border-border mt-12 text-center space-y-4">
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
           <CheckCircle className="h-4 w-4" />
-          <span>Files are processed securely in memory</span>
+          <span>파일은 메모리에서 안전하게 처리됩니다</span>
         </div>
         <p className="flex flex-wrap items-center justify-center gap-1 text-sm text-muted-foreground">
           <span>© 2026 PDF Unlocker Pro by</span>

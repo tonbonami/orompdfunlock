@@ -34,14 +34,14 @@ export function ActionPanel({
     <div className="bg-white rounded-lg border border-border p-6 shadow-sm space-y-6">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="common-password" title="Leave blank to attempt opening without password">
-            Common Password (Optional)
+          <Label htmlFor="common-password">
+            공통 비밀번호 (선택 사항)
           </Label>
           <div className="relative">
             <Input
               id="common-password"
               type={showPassword ? "text" : "password"}
-              placeholder="Enter password for all PDFs..."
+              placeholder="모든 PDF에 적용할 비밀번호 입력..."
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isProcessing || fileCount === 0}
@@ -66,7 +66,7 @@ export function ActionPanel({
             className="w-full sm:w-auto text-muted-foreground border-muted hover:bg-muted/50"
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            Clear All
+            모두 지우기
           </Button>
           <Button
             onClick={() => onUnlock(password)}
@@ -76,12 +76,12 @@ export function ActionPanel({
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Unlocking PDFs...
+                PDF 잠금 해제 중...
               </>
             ) : (
               <>
                 <Unlock className="h-4 w-4 mr-2" />
-                Unlock PDFs
+                PDF 잠금 해제
               </>
             )}
           </Button>
@@ -94,7 +94,7 @@ export function ActionPanel({
           className="flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <Settings2 className="h-4 w-4 mr-2" />
-          Export Settings
+          내보내기 설정
         </button>
         
         {showSettings && (
@@ -107,7 +107,7 @@ export function ActionPanel({
                   onExportOptionsChange({ ...exportOptions, includeLogo: !!checked })
                 }
               />
-              <Label htmlFor="includeLogo" className="text-sm cursor-pointer">Include OROMedu logo</Label>
+              <Label htmlFor="includeLogo" className="text-sm cursor-pointer">내보내기 파일에 OROMedu 로고 포함</Label>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -117,7 +117,7 @@ export function ActionPanel({
                   onExportOptionsChange({ ...exportOptions, includeDate: !!checked })
                 }
               />
-              <Label htmlFor="includeDate" className="text-sm cursor-pointer">Include export date</Label>
+              <Label htmlFor="includeDate" className="text-sm cursor-pointer">내보내기 날짜 포함</Label>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -127,7 +127,7 @@ export function ActionPanel({
                   onExportOptionsChange({ ...exportOptions, includeSummary: !!checked })
                 }
               />
-              <Label htmlFor="includeSummary" className="text-sm cursor-pointer">Include summary statistics</Label>
+              <Label htmlFor="includeSummary" className="text-sm cursor-pointer">요약 통계 포함</Label>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox
@@ -137,7 +137,7 @@ export function ActionPanel({
                   onExportOptionsChange({ ...exportOptions, includeDetails: !!checked })
                 }
               />
-              <Label htmlFor="includeDetails" className="text-sm cursor-pointer">Include per-file results</Label>
+              <Label htmlFor="includeDetails" className="text-sm cursor-pointer">파일별 상세 결과 포함</Label>
             </div>
           </div>
         )}

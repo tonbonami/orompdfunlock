@@ -14,6 +14,7 @@ export interface PDFFile {
   size: number;
   status: PDFStatus;
   errorMessage?: string;
+  unlockedBlob?: Blob; // Stores the processed file content
 }
 
 export interface ProcessingSummary {
