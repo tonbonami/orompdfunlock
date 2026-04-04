@@ -1,66 +1,70 @@
-// src/lib/pdf-service.ts
 import { PDFFile, PDFStatus, ExportOptions } from "@/types/pdf";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import { format } from "date-fns";
+
+const BACKEND_URL = "https://orompdfunlock-production.up.railway.app";
 
 export async function processPDF(
   pdfFile: PDFFile,
   options: ExportOptions
 ): Promise<{ status: PDFStatus; error?: string; blob?: Blob }> {
 
-  // ── Step 1. qpdf API Route로 실제 잠금 해제 ──────────────────────
   const formData = new FormData();
-  formData.append("file", pdfFile.file);
+  formData.append("files", pdfFile.file);
   formData.append("password", options.password || "");
 
   let unlockedArrayBuffer: ArrayBuffer;
   let wasEncrypted = true;
 
   try {
-    const res = await fetch("/api/unlock", {
+    const res = await fetch(`${BACKEND_URL}/unlock-pdfs`, {
       method: "POST",
       body: formData,
     });
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      return { status: "Failed", error: data.message || "서버 처리 오류" };
-    }
-
     const contentType = res.headers.get("Content-Type") || "";
-    const unlockStatus = res.headers.get("X-Unlock-Status");
 
-    if (contentType.includes("application/json")) {
-      // 잠금 해제 불필요 or 오류 케이스
-      const data = await res.json();
-      if (data.status === "already_unlocked") {
-        // 이미 잠금 해제된 파일 → 원본 그대로 사용
+    if (!res.ok || !contentType.includes("application/zip")) {
+      const data = await res.json().catch(() => ({}));
+      const results = data.results || [];
+      const first = results[0];
+      if (!first) return { status: "Failed", error: "서버 처리 오류" };
+
+      if (first.status === "wrong_password") return { status: "Wrong Password", error: "비밀번호가 올바르지 않습니다." };
+      if (first.status === "verification_failed") return { status: "Verification Failed", error: "검증 실패" };
+      if (first.status === "already_unlocked") {
         wasEncrypted = false;
-        unlockedArrayBuffer = await pdfFile.file.arrayBuffer();
-      } else if (data.status === "wrong_password") {
-        return { status: "Wrong Password", error: "비밀번호가 올바르지 않습니다." };
-      } else if (data.status === "verification_failed") {
-        return { status: "Verification Failed", error: "해제 후 검증 실패. 파일이 손상되었을 수 있습니다." };
       } else {
-        return { status: "Failed", error: data.message || "알 수 없는 오류" };
+        return { status: "Failed", error: first.message || "알 수 없는 오류" };
       }
-    } else {
-      // PDF blob 반환 = 잠금 해제 성공
-      unlockedArrayBuffer = await res.arrayBuffer();
     }
-  } catch (networkErr) {
-    return { status: "Failed", error: "API 연결 실패. 서버를 확인해 주세요." };
+
+    if (wasEncrypted) {
+      // ZIP에서 PDF 추출
+      const zipBlob = await res.blob();
+      const JSZip = (await import("jszip")).default;
+      const zip = await JSZip.loadAsync(zipBlob);
+      const files = Object.keys(zip.files);
+      if (files.length === 0) return { status: "Failed", error: "ZIP 파일이 비어있습니다." };
+      const pdfArrayBuffer = await zip.files[files[0]].async("arraybuffer");
+      unlockedArrayBuffer = pdfArrayBuffer;
+    } else {
+      unlockedArrayBuffer = await pdfFile.file.arrayBuffer();
+    }
+
+  } catch (err) {
+    return { status: "Failed", error: "API 연결 실패: " + String(err) };
   }
 
-  // ── Step 2. pdf-lib로 브랜딩 삽입 (선택) ────────────────────────
+  // 브랜딩 삽입
   try {
     const pdfDoc = await PDFDocument.load(unlockedArrayBuffer);
-    const pages  = pdfDoc.getPages();
-    const font   = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const pages = pdfDoc.getPages();
+    const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const today  = format(new Date(), "yyyy. M. d.");
+    const today = format(new Date(), "yyyy. M. d.");
     const colorBlue = rgb(0.48, 0.65, 1.0);
-    const colorRed  = rgb(1.0,  0.55, 0.55);
+    const colorRed = rgb(1.0, 0.55, 0.55);
 
     for (const page of pages) {
       const { width, height } = page.getSize();
@@ -101,8 +105,7 @@ export async function processPDF(
     const finalStatus: PDFStatus = wasEncrypted ? "Unlocked" : "Already Unlocked";
     return { status: finalStatus, blob };
 
-  } catch (brandingErr) {
-    // 브랜딩 실패해도 잠금 해제 파일은 반환
+  } catch {
     const blob = new Blob([unlockedArrayBuffer], { type: "application/pdf" });
     const finalStatus: PDFStatus = wasEncrypted ? "Unlocked" : "Already Unlocked";
     return { status: finalStatus, blob };
