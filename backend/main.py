@@ -11,6 +11,8 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_origins=["https://orompdfunlock.vercel.app", "http://localhost:3000"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -31,11 +33,11 @@ async def unlock_pdfs(
         content = await file.read()
         pdf_stream = io.BytesIO(content)
 
-        # 1단계: 암호화 여부 확인
+        is_encrypted = False
         try:
             pdf_check = pikepdf.open(pdf_stream)
-            is_encrypted = False
             pdf_check.close()
+            is_encrypted = False
         except pikepdf.PasswordError:
             is_encrypted = True
         except Exception:
@@ -43,7 +45,6 @@ async def unlock_pdfs(
 
         pdf_stream.seek(0)
 
-        # 2단계: 이미 잠금 해제된 파일
         if not is_encrypted:
             try:
                 pdf = pikepdf.open(pdf_stream)
@@ -56,7 +57,6 @@ async def unlock_pdfs(
                 results.append({"filename": file.filename, "status": "failed", "message": str(e)})
             continue
 
-        # 3단계: 비밀번호로 해제 시도
         pdf_stream.seek(0)
         try:
             pdf = pikepdf.open(pdf_stream, password=password, allow_overwriting_input=False)
@@ -65,9 +65,8 @@ async def unlock_pdfs(
             output.seek(0)
             unlocked_data = output.read()
 
-            # 4단계: 검증 — 비밀번호 없이 열리는지 확인
+            verify_stream = io.BytesIO(unlocked_data)
             try:
-                verify_stream = io.BytesIO(unlocked_data)
                 pikepdf.open(verify_stream)
                 unlocked_files[file.filename] = unlocked_data
                 results.append({"filename": file.filename, "status": "unlocked"})
@@ -79,7 +78,6 @@ async def unlock_pdfs(
         except Exception as e:
             results.append({"filename": file.filename, "status": "failed", "message": str(e)})
 
-    # ZIP으로 묶어서 반환
     if unlocked_files:
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
