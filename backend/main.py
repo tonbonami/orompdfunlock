@@ -1,5 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, Form
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi import FastAPI, UploadFile, File, Form, Request
+from fastapi.responses import StreamingResponse, JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 import pikepdf
 import zipfile
@@ -12,9 +12,21 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    max_age=3600,
 )
+
+@app.options("/unlock-pdfs")
+async def options_unlock(request: Request):
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 @app.get("/health")
 def health():
@@ -90,8 +102,13 @@ async def unlock_pdfs(
             headers={
                 "Content-Disposition": "attachment; filename=unlocked_pdfs.zip",
                 "X-Unlock-Results": json.dumps(results, ensure_ascii=False),
+                "Access-Control-Allow-Origin": "*",
                 "Access-Control-Expose-Headers": "X-Unlock-Results",
             }
         )
 
-    return JSONResponse(content={"results": results}, status_code=400)
+    return JSONResponse(
+        content={"results": results},
+        status_code=400,
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
