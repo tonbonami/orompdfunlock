@@ -25,9 +25,10 @@ export interface ProcessingSummary {
   failed: number;
 }
 
+export type DownloadFormat = 'pdf' | 'zip';
+
 export interface ExportOptions {
   includeLogo: boolean;
   includeDate: boolean;
-  includeSummary: boolean;
-  includeDetails: boolean;
+  downloadFormat: DownloadFormat;
 }
